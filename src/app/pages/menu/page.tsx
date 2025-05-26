@@ -47,15 +47,15 @@ export default function DiaryPage() {
       <h2 className="text-xl font-bold border-b pb-2">ようこそ</h2>
       {/* 投稿フォーム */}
       <div className="space-y-4">
-        <textarea 
+        <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="今日の出来事を書いてみよう"
           className="w-full min-h-[120px] rounded-lg border border-gray-300 p-3 focus:border-indigo-500 focus:ring-indigo-500"
         />
-        <button onClick={handlePost} 
-        disabled={!content} 
-        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">
+        <button onClick={handlePost}
+          disabled={!content}
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">
           投稿
         </button>
       </div>

@@ -31,13 +31,13 @@ export default function Home() {
             <Image
               src={AppLogo}
               alt="My Brand Logo"
-              width={150} // 変更: ロゴの幅を大きく
-              height={150} // 変更: ロゴの高さを大きく
+              // width={200} // 変更: ロゴの幅を大きく
+              // height={150} // 変更: ロゴの高さを大きく
               priority
               style={{ marginBottom: '12px' }} // 変更: 余白を調整
             />
             <Typography
-              variant="h4"
+              variant="h5"
               component="h1"
               sx={{
                 fontWeight: 700,
@@ -45,7 +45,7 @@ export default function Home() {
                 mb: 0.5, // 変更: 余白を調整
               }}
             >
-              Cut off Gordian knot
+              ゴルディアスの結び目を断ち切れ
             </Typography>
             <Typography
               variant="subtitle1"
@@ -57,8 +57,10 @@ export default function Home() {
             >
               あなたのTRPGライフを快適にするプラットフォーム
             </Typography>
-          <LoginPage />
-          <KokofoliaLinkPage />
+            <Box height={15} />
+            <LoginPage />
+            <Box height={15} />
+            <KokofoliaLinkPage />
           </Box>
         </Paper>
       </Container>
