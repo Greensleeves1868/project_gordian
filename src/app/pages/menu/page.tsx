@@ -4,9 +4,6 @@ import type { User } from "@/types/user";
 import type { Post } from "@/types/post";
 import { supabase } from "@/lib/supabaseClient";
 
-export const dynamic = "force-dynamic"; //動的にレンダリングする
-export const fetchCache = "force-no-store"; // 常に最新のデータを取得する
-
 export default function DiaryPage() {
   // --- 状態管理 ---
   const [user, setUser] = useState<User | null>(null);
