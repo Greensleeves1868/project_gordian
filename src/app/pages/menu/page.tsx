@@ -87,7 +87,7 @@ export default function RoomResourcePage() { // コンポーネント名をRoomR
       // ファイルが選択されている場合
       if (selectedFile) {
         const fileExtension = selectedFile.name.split('.').pop(); // ファイル拡張子を取得
-        const fileName = `file_${Date.now()}.${fileExtension}`; // 一意なファイル名を生成
+        const fileName = `${generateUniqueId()}_${Date.now()}.${fileExtension}`; // 一意なファイル名を生成
         const filePath = `${user.id}/${fileName}`; // Supabase Storage内のパス (ユーザーIDごとのフォルダ)
 
         // Supabase Storageへのファイルアップロード
