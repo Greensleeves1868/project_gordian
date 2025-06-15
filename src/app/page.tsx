@@ -3,7 +3,7 @@
 import LoginPage from "@/app/pages/login/page";
 import KokofoliaLinkPage from "@/app/pages/cocofolia/page"
 import { Box, Typography, Container, Paper } from '@mui/material';
-import Image from 'next/image'; // Next.jsのImageコンポーネント
+import Image from 'next/image';
 import AppLogo from "@/app/image/appLogo.png"
 
 export default function Home() {
@@ -13,28 +13,31 @@ export default function Home() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start', // 変更: 上部に寄せる
+        justifyContent: 'flex-start',
         minHeight: '100vh',
-        bgcolor: 'grey.100',
-        p: 4, // パディングを少し大きく
+        // 最も後ろの背景色を青系のグラデーションに変更
+        background: 'linear-gradient(135deg, #ADD8E6 0%, #87CEEB 100%)', // ライトブルーからスカイブルーへ
+        p: 4,
       }}
     >
-      <Container maxWidth="sm"> {/* 変更: maxWidthを大きく */}
+      <Container maxWidth="sm">
         <Paper
           elevation={6}
           sx={{
             p: { xs: 3, sm: 4 },
             borderRadius: '1rem',
+            // Paper（コンテナ）の背景色をグラデーションに合うように変更
+            bgcolor: '#E0F2F7', // ごく薄い青色
           }}
         >
-          <Box sx={{ textAlign: 'center', mb: 3 }}> {/* 変更: mbを少し小さく */}
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Image
               src={AppLogo}
               alt="My Brand Logo"
-              // width={200} // 変更: ロゴの幅を大きく
-              // height={150} // 変更: ロゴの高さを大きく
+              // width={200}
+              // height={150}
               priority
-              style={{ marginBottom: '12px' }} // 変更: 余白を調整
+              style={{ marginBottom: '12px' }}
             />
             <Typography
               variant="h5"
@@ -42,7 +45,7 @@ export default function Home() {
               sx={{
                 fontWeight: 700,
                 color: 'text.primary',
-                mb: 0.5, // 変更: 余白を調整
+                mb: 0.5,
               }}
             >
               ゴルディアスの結び目を断ち切れ
