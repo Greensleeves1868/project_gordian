@@ -102,6 +102,9 @@ export default function RoomResourcePage() { // コンポーネント名をRoomR
           throw new Error(`ファイルのアップロードに失敗しました: ${uploadError.message}`);
         }
 
+        
+console.log("アップロード成功データ:", uploadData);
+
         // アップロードしたファイルの公開URLを取得
         const { data: publicUrlData } = supabase.storage
           .from("room-resources")
