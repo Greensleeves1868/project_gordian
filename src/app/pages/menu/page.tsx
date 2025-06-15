@@ -1,4 +1,8 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line react-hooks/exhaustive-deps
 'use client';
+
+
 
 import { useEffect, useState, useCallback } from "react";
 import type { User } from "@/types/user";
@@ -102,8 +106,8 @@ export default function RoomResourcePage() { // コンポーネント名をRoomR
           throw new Error(`ファイルのアップロードに失敗しました: ${uploadError.message}`);
         }
 
-        
-console.log("アップロード成功データ:", uploadData);
+
+        console.log("アップロード成功データ:", uploadData);
 
         // アップロードしたファイルの公開URLを取得
         const { data: publicUrlData } = supabase.storage
@@ -139,6 +143,7 @@ console.log("アップロード成功データ:", uploadData);
 
       // URLまたはファイルが保存された後、リソースリストを再取得
       fetchResources(user.id);
+
     } catch (error: any) {
       console.error("リソースの保存中にエラーが発生しました:", error.message);
       // ここでユーザーにエラーメッセージを表示するUI (例: Snackbar, Dialog) を追加すると良いでしょう
