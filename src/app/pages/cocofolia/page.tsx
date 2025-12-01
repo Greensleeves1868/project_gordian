@@ -1,33 +1,89 @@
-// src/app/pages/kokofolia.tsx
-'use client'; // クライアントコンポーネントとしてマーク
+'use client';
 
-import Link from 'next/link'; // Next.jsのLinkコンポーネントをインポート
+import Link from 'next/link';
+import {
+  Card,
+  CardActionArea,
+  Box,
+  Typography,
+  useTheme,
+  alpha,
+} from '@mui/material';
+import LinkIcon from '@mui/icons-material/Link';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function KokofoliaLinkPage() {
-    return (
-        <main className="flex items-center justify-center bg-gray-50">
-            <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg flex flex-col items-center">
-                {/* ページのタイトル */}
-                <h1 className="mb-8 text-center text-3xl font-bold text-gray-800">
-                    ココフォリア公式サイト
-                </h1>
+  const theme = useTheme();
 
-                {/* 説明文 */}
-                <p className="mb-6 text-center text-gray-700">
-                    TRPGオンラインセッションツール「ココフォリア」の公式サイトへ移動します。
-                </p>
+  return (
+    <Link
+      href="https://ccfolia.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: 'none' }}
+    >
+      <Card
+        sx={{
+          bgcolor: alpha(theme.palette.secondary.dark, 0.5),
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            bgcolor: alpha(theme.palette.secondary.dark, 0.7),
+            transform: 'translateY(-2px)',
+          },
+        }}
+      >
+        <CardActionArea sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {/* アイコン */}
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              }}
+            >
+              <LinkIcon sx={{ color: 'primary.main' }} />
+            </Box>
 
-                {/* 公式サイトへのボタンリンク */}
-                {/* Next.jsのLinkコンポーネントを使用し、外部URLへは<a>タグを直接指定 */}
-                <Link
-                    href="https://ccfolia.com/" // ココフォリア公式サイトのURL
-                    target="_blank" // 新しいタブで開く
-                    rel="noopener noreferrer" // セキュリティ対策
-                    className="w-full rounded-lg bg-indigo-600 py-3 font-medium text-white text-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200"
-                >
-                    公式サイトへ移動する
-                </Link>
-            </div>
-        </main>
-    );
+            {/* テキスト */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="subtitle1"
+                fontWeight={600}
+                sx={{
+                  color: 'text.primary',
+                  transition: 'color 0.3s',
+                }}
+              >
+                ココフォリア公式サイト
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+              >
+                TRPGオンラインセッションツール
+              </Typography>
+            </Box>
+
+            {/* 外部リンクアイコン */}
+            <OpenInNewIcon
+              sx={{
+                color: 'text.secondary',
+                transition: 'color 0.3s',
+                '.MuiCardActionArea-root:hover &': {
+                  color: 'primary.main',
+                },
+              }}
+            />
+          </Box>
+        </CardActionArea>
+      </Card>
+    </Link>
+  );
 }
