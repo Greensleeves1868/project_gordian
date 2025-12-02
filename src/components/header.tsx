@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 
 const navItems = [
   { label: 'ダッシュボード', href: '/pages/menu' },
