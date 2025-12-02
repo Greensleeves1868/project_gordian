@@ -20,7 +20,6 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import FolderIcon from '@mui/icons-material/Folder';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';

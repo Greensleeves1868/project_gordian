@@ -29,7 +29,7 @@ export default function LoginPage() {
     
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${location.origin}/pages/menu` },
+      options: { emailRedirectTo: `${location.origin}/pages/dashboard` },
     });
     
     setLoading(false);

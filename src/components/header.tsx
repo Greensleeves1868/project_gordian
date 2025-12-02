@@ -21,7 +21,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 
 const navItems = [
-  { label: 'ダッシュボード', href: '/pages/menu' },
+  { label: 'ダッシュボード', href: '/pages/dashboard' },
   { label: '特徴', href: '/features' },
   { label: '料金', href: '/pricing' },
   { label: 'お問い合わせ', href: '/contact' },
