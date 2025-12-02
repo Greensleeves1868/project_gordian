@@ -55,13 +55,33 @@ export default function RoomResourcePage() {
     deleteSession
   } = useResources();
 
-  // 認証チェック
+  // 認証チェック（Magic Linkコールバック対応）
   useEffect(() => {
+    // 認証状態の変化を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser({ id: session.user.id, email: session.user.email ?? null });
+          setAccessToken(session.access_token);
+        } else if (event === 'SIGNED_OUT' || !session) {
+          window.location.href = '/';
+        }
+      }
+    );
+
+    // 初回ロード時のセッション確認
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        window.location.href = '/';
+        // Magic Linkからのリダイレクト直後はセッションがまだない場合がある
+        // onAuthStateChangeで処理されるので、少し待つ
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (!retrySession?.user) {
+            window.location.href = '/';
+          }
+        }, 1000);
         return;
       }
       
@@ -70,6 +90,10 @@ export default function RoomResourcePage() {
     };
     
     checkAuth();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
