@@ -1,6 +1,7 @@
 // src/hooks/useResources.ts
 import { useState, useCallback } from 'react';
 import type { RoomResource, Session } from '@/types/roomResource';
+import { PLAN_LIMITS } from '@/lib/planLimits';
 
 type ResourceInput = {
   type: RoomResource['type'];
@@ -9,11 +10,18 @@ type ResourceInput = {
   session_id?: string;
 };
 
+type SessionMeta = {
+  sessionCount: number;
+  maxSessions: number;
+};
+
 type UseResourcesReturn = {
   resources: RoomResource[];
   sessions: Session[];
+  sessionMeta: SessionMeta;
   loading: boolean;
   error: string | null;
+  canCreateSession: boolean;
   fetchResources: (accessToken: string) => Promise<void>;
   saveResource: (accessToken: string, resource: ResourceInput) => Promise<boolean>;
   uploadFile: (accessToken: string, file: File, name?: string, sessionId?: string) => Promise<boolean>;
@@ -84,8 +92,15 @@ function groupResourcesIntoSessions(resources: RoomResource[]): Session[] {
 export function useResources(): UseResourcesReturn {
   const [resources, setResources] = useState<RoomResource[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>({
+    sessionCount: 0,
+    maxSessions: PLAN_LIMITS.FREE.maxSessions,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // セッション作成可能かどうか
+  const canCreateSession = sessionMeta.sessionCount < sessionMeta.maxSessions;
 
   // リソース一覧を取得
   const fetchResources = useCallback(async (accessToken: string) => {
@@ -109,6 +124,14 @@ export function useResources(): UseResourcesReturn {
       const fetchedResources = result.data || [];
       setResources(fetchedResources);
       setSessions(groupResourcesIntoSessions(fetchedResources));
+      
+      // メタデータを更新
+      if (result.meta) {
+        setSessionMeta({
+          sessionCount: result.meta.sessionCount || 0,
+          maxSessions: result.meta.maxSessions || PLAN_LIMITS.FREE.maxSessions,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : '予期しないエラーが発生しました';
       setError(message);
@@ -228,6 +251,12 @@ export function useResources(): UseResourcesReturn {
         isStandalone ? r.id !== sessionId : r.session_id !== sessionId
       ));
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      
+      // セッション数を減らす
+      setSessionMeta((prev) => ({
+        ...prev,
+        sessionCount: Math.max(0, prev.sessionCount - 1),
+      }));
 
       return true;
     } catch (err) {
@@ -243,8 +272,10 @@ export function useResources(): UseResourcesReturn {
   return {
     resources,
     sessions,
+    sessionMeta,
     loading,
     error,
+    canCreateSession,
     fetchResources,
     saveResource,
     uploadFile,

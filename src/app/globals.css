@@ -1,8 +1,8 @@
 /* GORDIAN - TRPGプラットフォーム */
-/* MUIがメインスタイリングを担当 */
+/* モダンミニマルスタイル */
 
-/* Google Fonts (Cinzel) */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+/* Google Fonts (Inter) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
 
 /* アニメーション */
 @keyframes fadeInUp {
@@ -16,21 +16,8 @@
   }
 }
 
-@keyframes glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.3));
-  }
-  50% {
-    filter: drop-shadow(0 0 40px rgba(212, 175, 55, 0.5));
-  }
-}
-
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.animate-glow {
-  animation: glow 3s ease-in-out infinite;
 }
 
 /* スタガードアニメーション */

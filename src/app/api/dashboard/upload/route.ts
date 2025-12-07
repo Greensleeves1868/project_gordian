@@ -1,29 +1,13 @@
 // src/app/api/dashboard/upload/route.ts
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-
-// サーバーサイド用のSupabaseクライアントを作成
-function createServerSupabaseClient(accessToken: string) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-  });
-}
-
-// 認証トークンを取得するヘルパー関数
-function getAccessToken(request: NextRequest): string | null {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-  return authHeader.slice(7);
-}
+import {
+  createServerSupabaseClient,
+  getAccessToken,
+  unauthorizedResponse,
+  badRequestResponse,
+  serverErrorResponse,
+} from '@/lib/supabaseServer';
+import { PLAN_LIMITS, formatFileSize } from '@/lib/planLimits';
 
 // ファイルタイプを判定するヘルパー関数
 function getResourceType(mimeType: string): 'image' | 'pdf' | 'other_url' {
@@ -36,39 +20,97 @@ function getResourceType(mimeType: string): 'image' | 'pdf' | 'other_url' {
   return 'other_url';
 }
 
+// ユーザーのセッション数を取得するヘルパー関数
+async function getSessionCount(supabase: ReturnType<typeof createServerSupabaseClient>, userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('session_id')
+    .eq('user_id', userId)
+    .not('session_id', 'is', null);
+
+  if (error) {
+    console.error('セッション数取得エラー:', error.message);
+    return 0;
+  }
+
+  const uniqueSessionIds = new Set(data?.map(r => r.session_id) || []);
+  
+  const { count: standaloneCount } = await supabase
+    .from('resources')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('session_id', null);
+
+  return uniqueSessionIds.size + (standaloneCount || 0);
+}
+
 // POST: ファイルをアップロード
 export async function POST(request: NextRequest) {
   try {
     const accessToken = getAccessToken(request);
     if (!accessToken) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return unauthorizedResponse();
     }
 
     const supabase = createServerSupabaseClient(accessToken);
     
-    // トークンからユーザー情報を取得
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: '認証に失敗しました' },
-        { status: 401 }
-      );
+      return unauthorizedResponse('認証に失敗しました');
     }
 
-    // FormDataを取得
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const resourceName = formData.get('name') as string | null;
     const sessionId = formData.get('session_id') as string | null;
 
     if (!file) {
+      return badRequestResponse('ファイルが選択されていません');
+    }
+
+    // ファイルサイズの制限チェック
+    if (file.size > PLAN_LIMITS.FREE.maxFileSizeBytes) {
       return NextResponse.json(
-        { error: 'ファイルが選択されていません' },
-        { status: 400 }
+        { 
+          error: `ファイルサイズが上限（${PLAN_LIMITS.FREE.maxFileSizeDisplay}）を超えています。選択されたファイル: ${formatFileSize(file.size)}`,
+          code: 'FILE_SIZE_EXCEEDED'
+        },
+        { status: 413 }
       );
+    }
+
+    // セッション数の制限チェック（新しいセッションの場合）
+    if (sessionId) {
+      const { data: existingSession } = await supabase
+        .from('resources')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('session_id', sessionId)
+        .limit(1);
+
+      if (!existingSession || existingSession.length === 0) {
+        const sessionCount = await getSessionCount(supabase, user.id);
+        if (sessionCount >= PLAN_LIMITS.FREE.maxSessions) {
+          return NextResponse.json(
+            { 
+              error: `セッション数が上限（${PLAN_LIMITS.FREE.maxSessions}件）に達しています`,
+              code: 'SESSION_LIMIT_EXCEEDED'
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } else {
+      const sessionCount = await getSessionCount(supabase, user.id);
+      if (sessionCount >= PLAN_LIMITS.FREE.maxSessions) {
+        return NextResponse.json(
+          { 
+            error: `セッション数が上限（${PLAN_LIMITS.FREE.maxSessions}件）に達しています`,
+            code: 'SESSION_LIMIT_EXCEEDED'
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // ファイル名を生成
@@ -91,10 +133,7 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('ファイルアップロードエラー:', uploadError.message);
-      return NextResponse.json(
-        { error: 'ファイルのアップロードに失敗しました' },
-        { status: 500 }
-      );
+      return serverErrorResponse('ファイルのアップロードに失敗しました');
     }
 
     // 公開URLを取得
@@ -103,10 +142,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(filePath);
 
     if (!publicUrlData?.publicUrl) {
-      return NextResponse.json(
-        { error: 'ファイルの公開URLを取得できませんでした' },
-        { status: 500 }
-      );
+      return serverErrorResponse('ファイルの公開URLを取得できませんでした');
     }
 
     // リソースタイプを判定
@@ -127,19 +163,12 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('リソース保存エラー:', insertError.message);
-      return NextResponse.json(
-        { error: 'リソース情報の保存に失敗しました' },
-        { status: 500 }
-      );
+      return serverErrorResponse('リソース情報の保存に失敗しました');
     }
 
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
     console.error('予期しないエラー:', error);
-    return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
-      { status: 500 }
-    );
+    return serverErrorResponse();
   }
 }
-

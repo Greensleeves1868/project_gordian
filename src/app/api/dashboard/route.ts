@@ -1,29 +1,40 @@
 // src/app/api/dashboard/route.ts
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import type { RoomResource } from '@/types/roomResource';
+import {
+  createServerSupabaseClient,
+  getAccessToken,
+  unauthorizedResponse,
+  badRequestResponse,
+  serverErrorResponse,
+} from '@/lib/supabaseServer';
+import { PLAN_LIMITS } from '@/lib/planLimits';
 
-// サーバーサイド用のSupabaseクライアントを作成
-function createServerSupabaseClient(accessToken: string) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-  });
-}
+// ユーザーのセッション数を取得するヘルパー関数
+async function getSessionCount(supabase: ReturnType<typeof createServerSupabaseClient>, userId: string): Promise<number> {
+  // session_idでグループ化してユニークなセッション数をカウント
+  const { data, error } = await supabase
+    .from('resources')
+    .select('session_id')
+    .eq('user_id', userId)
+    .not('session_id', 'is', null);
 
-// 認証トークンを取得するヘルパー関数
-function getAccessToken(request: NextRequest): string | null {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
+  if (error) {
+    console.error('セッション数取得エラー:', error.message);
+    return 0;
   }
-  return authHeader.slice(7);
+
+  // ユニークなsession_idをカウント
+  const uniqueSessionIds = new Set(data?.map(r => r.session_id) || []);
+  
+  // session_idがないリソース（スタンドアロン）もカウント
+  const { count: standaloneCount } = await supabase
+    .from('resources')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('session_id', null);
+
+  return uniqueSessionIds.size + (standaloneCount || 0);
 }
 
 // GET: リソース一覧を取得
@@ -31,24 +42,16 @@ export async function GET(request: NextRequest) {
   try {
     const accessToken = getAccessToken(request);
     if (!accessToken) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return unauthorizedResponse();
     }
 
     const supabase = createServerSupabaseClient(accessToken);
     
-    // トークンからユーザー情報を取得
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: '認証に失敗しました' },
-        { status: 401 }
-      );
+      return unauthorizedResponse('認証に失敗しました');
     }
 
-    // リソースを取得
     const { data, error } = await supabase
       .from('resources')
       .select('*')
@@ -57,19 +60,22 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('リソース取得エラー:', error.message);
-      return NextResponse.json(
-        { error: 'リソースの取得に失敗しました' },
-        { status: 500 }
-      );
+      return serverErrorResponse('リソースの取得に失敗しました');
     }
 
-    return NextResponse.json({ data });
+    // セッション数も返す
+    const sessionCount = await getSessionCount(supabase, user.id);
+
+    return NextResponse.json({ 
+      data,
+      meta: {
+        sessionCount,
+        maxSessions: PLAN_LIMITS.FREE.maxSessions,
+      }
+    });
   } catch (error) {
     console.error('予期しないエラー:', error);
-    return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
-      { status: 500 }
-    );
+    return serverErrorResponse();
   }
 }
 
@@ -78,35 +84,60 @@ export async function POST(request: NextRequest) {
   try {
     const accessToken = getAccessToken(request);
     if (!accessToken) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return unauthorizedResponse();
     }
 
     const supabase = createServerSupabaseClient(accessToken);
     
-    // トークンからユーザー情報を取得
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: '認証に失敗しました' },
-        { status: 401 }
-      );
+      return unauthorizedResponse('認証に失敗しました');
     }
 
     const body = await request.json();
     const { type, name, value, session_id } = body as Pick<RoomResource, 'type' | 'name' | 'value' | 'session_id'>;
 
-    // バリデーション
     if (!type || !value) {
-      return NextResponse.json(
-        { error: 'type と value は必須です' },
-        { status: 400 }
-      );
+      return badRequestResponse('type と value は必須です');
     }
 
-    // リソースを保存
+    // 新しいセッションを作成する場合、セッション数の制限をチェック
+    if (session_id) {
+      // このsession_idが既存かどうかチェック
+      const { data: existingSession } = await supabase
+        .from('resources')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('session_id', session_id)
+        .limit(1);
+
+      // 新しいセッションの場合
+      if (!existingSession || existingSession.length === 0) {
+        const sessionCount = await getSessionCount(supabase, user.id);
+        if (sessionCount >= PLAN_LIMITS.FREE.maxSessions) {
+          return NextResponse.json(
+            { 
+              error: `セッション数が上限（${PLAN_LIMITS.FREE.maxSessions}件）に達しています`,
+              code: 'SESSION_LIMIT_EXCEEDED'
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } else {
+      // session_idなし（スタンドアロン）の場合もセッション数としてカウント
+      const sessionCount = await getSessionCount(supabase, user.id);
+      if (sessionCount >= PLAN_LIMITS.FREE.maxSessions) {
+        return NextResponse.json(
+          { 
+            error: `セッション数が上限（${PLAN_LIMITS.FREE.maxSessions}件）に達しています`,
+            code: 'SESSION_LIMIT_EXCEEDED'
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('resources')
       .insert([{
@@ -121,19 +152,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('リソース保存エラー:', error.message);
-      return NextResponse.json(
-        { error: 'リソースの保存に失敗しました' },
-        { status: 500 }
-      );
+      return serverErrorResponse('リソースの保存に失敗しました');
     }
 
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
     console.error('予期しないエラー:', error);
-    return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
-      { status: 500 }
-    );
+    return serverErrorResponse();
   }
 }
 
@@ -142,21 +167,14 @@ export async function DELETE(request: NextRequest) {
   try {
     const accessToken = getAccessToken(request);
     if (!accessToken) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return unauthorizedResponse();
     }
 
     const supabase = createServerSupabaseClient(accessToken);
     
-    // トークンからユーザー情報を取得
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: '認証に失敗しました' },
-        { status: 401 }
-      );
+      return unauthorizedResponse('認証に失敗しました');
     }
 
     const { searchParams } = new URL(request.url);
@@ -164,10 +182,7 @@ export async function DELETE(request: NextRequest) {
     const resourceId = searchParams.get('resource_id');
 
     if (!sessionId && !resourceId) {
-      return NextResponse.json(
-        { error: 'session_id または resource_id が必要です' },
-        { status: 400 }
-      );
+      return badRequestResponse('session_id または resource_id が必要です');
     }
 
     let query = supabase
@@ -175,11 +190,9 @@ export async function DELETE(request: NextRequest) {
       .delete()
       .eq('user_id', user.id);
 
-    // session_idがある場合は、そのセッションに属するすべてのリソースを削除
     if (sessionId) {
       query = query.eq('session_id', sessionId);
     } else if (resourceId) {
-      // resource_idの場合は単一リソースを削除
       query = query.eq('id', resourceId);
     }
 
@@ -187,18 +200,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('リソース削除エラー:', error.message);
-      return NextResponse.json(
-        { error: 'リソースの削除に失敗しました' },
-        { status: 500 }
-      );
+      return serverErrorResponse('リソースの削除に失敗しました');
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('予期しないエラー:', error);
-    return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
-      { status: 500 }
-    );
+    return serverErrorResponse();
   }
 }

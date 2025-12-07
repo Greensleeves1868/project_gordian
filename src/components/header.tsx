@@ -14,8 +14,6 @@ import {
   ListItemButton,
   ListItemText,
   Box,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
@@ -28,7 +26,6 @@ const navItems = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const theme = useTheme();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -37,67 +34,43 @@ export default function Header() {
   return (
     <>
       <AppBar position="sticky">
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
+        <Toolbar
+          sx={{
+            justifyContent: 'space-between',
+            px: { xs: 2, md: 4 },
+            minHeight: { xs: 64, md: 72 },
+          }}
+        >
           {/* ロゴ */}
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {/* 剣アイコン */}
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'primary.main',
-                  transition: 'color 0.3s',
-                  '&:hover': { color: 'primary.light' },
-                }}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-                  <path d="M14.121 10.48L17.657 7.052l.707-.707-1.414-1.414-.707.707-3.428 3.536L12 9.987l-.815-.813-3.428-3.536-.707-.707L5.636 6.345l.707.707 3.536 3.428.814.814-.814.815-3.536 3.428-.707.707 1.414 1.414.707-.707 3.428-3.535.815-.815.815.815 3.428 3.535.707.707 1.414-1.414-.707-.707-3.536-3.428-.814-.815.814-.814z"/>
-                  <path d="M12 3l1 4h-2l1-4zM12 21l-1-4h2l-1 4z"/>
-                </svg>
-              </Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontFamily: '"Cinzel", serif',
-                  fontWeight: 700,
-                  color: 'primary.main',
-                  letterSpacing: 2,
-                  transition: 'color 0.3s',
-                  '&:hover': { color: 'primary.light' },
-                }}
-              >
-                GORDIAN
-              </Typography>
-            </Box>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 800,
+                color: 'text.primary',
+                letterSpacing: '0.1em',
+                fontSize: { xs: '1rem', md: '1.125rem' },
+                transition: 'opacity 0.2s',
+                '&:hover': { opacity: 0.7 },
+              }}
+            >
+              GORDIAN
+            </Typography>
           </Link>
 
           {/* デスクトップナビゲーション */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
             {navItems.map((item) => (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
                 <Button
                   sx={{
                     color: 'text.primary',
-                    position: 'relative',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      bottom: 0,
-                      left: '50%',
-                      width: 0,
-                      height: 2,
-                      bgcolor: 'primary.main',
-                      transition: 'all 0.3s',
-                      transform: 'translateX(-50%)',
-                    },
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    px: 2,
                     '&:hover': {
                       bgcolor: 'transparent',
-                      color: 'primary.main',
-                      '&::after': { width: '80%' },
+                      opacity: 0.7,
                     },
                   }}
                 >
@@ -109,11 +82,13 @@ export default function Header() {
 
           {/* モバイルメニューボタン */}
           <IconButton
-            color="inherit"
             aria-label="メニューを開く"
             edge="end"
             onClick={handleDrawerToggle}
-            sx={{ display: { md: 'none' } }}
+            sx={{
+              display: { md: 'none' },
+              color: 'text.primary',
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -128,18 +103,30 @@ export default function Header() {
         sx={{
           display: { md: 'none' },
           '& .MuiDrawer-paper': {
-            width: 280,
+            width: '100%',
+            maxWidth: 320,
             bgcolor: 'background.default',
-            borderLeft: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
           },
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <IconButton onClick={handleDrawerToggle} sx={{ color: 'text.primary' }}>
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.1em' }}>
+            GORDIAN
+          </Typography>
+          <IconButton onClick={handleDrawerToggle}>
             <CloseIcon />
           </IconButton>
         </Box>
-        <List>
+        <List sx={{ pt: 2 }}>
           {navItems.map((item) => (
             <ListItem key={item.href} disablePadding>
               <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
@@ -147,14 +134,15 @@ export default function Header() {
                   onClick={handleDrawerToggle}
                   sx={{
                     py: 2,
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    },
+                    px: 3,
                   }}
                 >
                   <ListItemText
                     primary={item.label}
-                    sx={{ color: 'text.primary' }}
+                    primaryTypographyProps={{
+                      fontWeight: 500,
+                      color: 'text.primary',
+                    }}
                   />
                 </ListItemButton>
               </Link>

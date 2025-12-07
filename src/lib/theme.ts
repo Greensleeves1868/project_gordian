@@ -3,67 +3,77 @@
 
 import { createTheme, alpha } from '@mui/material/styles';
 
-// カスタムカラーパレット
+// モダンミニマルカラーパレット（Delight Ventures風）
 const colors = {
-  deepNavy: '#0d1b2a',
-  darkSlate: '#1b263b',
-  midnight: '#415a77',
-  steelBlue: '#778da9',
-  silver: '#e0e1dd',
-  gold: '#d4af37',
-  goldLight: '#f4d160',
-  amber: '#ffbf00',
-  crimson: '#dc143c',
-  emerald: '#50c878',
+  // ベースカラー
+  white: '#ffffff',
+  offWhite: '#fafafa',
+  lightGray: '#f5f5f5',
+  gray: '#e0e0e0',
+  mediumGray: '#9e9e9e',
+  darkGray: '#424242',
+  charcoal: '#1a1a1a',
+  black: '#0a0a0a',
+  
+  // アクセントカラー
+  accent: '#ff4d4d', // 鮮やかな赤
+  accentLight: '#ff6b6b',
+  accentDark: '#e63939',
+  
+  // セカンダリ
+  blue: '#2962ff',
+  teal: '#00bfa5',
 };
 
 export const theme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: 'light',
     primary: {
-      main: colors.gold,
-      light: colors.goldLight,
-      dark: '#b8972f',
-      contrastText: colors.deepNavy,
+      main: colors.charcoal,
+      light: colors.darkGray,
+      dark: colors.black,
+      contrastText: colors.white,
     },
     secondary: {
-      main: colors.midnight,
-      light: colors.steelBlue,
-      dark: colors.darkSlate,
-      contrastText: colors.silver,
+      main: colors.accent,
+      light: colors.accentLight,
+      dark: colors.accentDark,
+      contrastText: colors.white,
     },
     background: {
-      default: colors.deepNavy,
-      paper: colors.darkSlate,
+      default: colors.white,
+      paper: colors.white,
     },
     text: {
-      primary: colors.silver,
-      secondary: colors.steelBlue,
+      primary: colors.charcoal,
+      secondary: colors.mediumGray,
     },
     error: {
-      main: colors.crimson,
+      main: colors.accent,
     },
     success: {
-      main: colors.emerald,
+      main: colors.teal,
     },
-    divider: alpha(colors.gold, 0.2),
+    divider: colors.gray,
   },
   typography: {
-    fontFamily: '"Noto Sans JP", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Noto Sans JP", "Inter", "Helvetica Neue", sans-serif',
     h1: {
-      fontFamily: '"Cinzel", "Noto Serif JP", serif',
-      fontWeight: 700,
+      fontFamily: '"Inter", "Noto Sans JP", sans-serif',
+      fontWeight: 800,
+      letterSpacing: '-0.02em',
     },
     h2: {
-      fontFamily: '"Cinzel", "Noto Serif JP", serif',
+      fontFamily: '"Inter", "Noto Sans JP", sans-serif',
       fontWeight: 700,
+      letterSpacing: '-0.01em',
     },
     h3: {
-      fontFamily: '"Cinzel", "Noto Serif JP", serif',
-      fontWeight: 600,
+      fontFamily: '"Inter", "Noto Sans JP", sans-serif',
+      fontWeight: 700,
     },
     h4: {
-      fontFamily: '"Cinzel", "Noto Serif JP", serif',
+      fontFamily: '"Inter", "Noto Sans JP", sans-serif',
       fontWeight: 600,
     },
     h5: {
@@ -75,55 +85,77 @@ export const theme = createTheme({
     button: {
       fontWeight: 600,
       textTransform: 'none',
+      letterSpacing: '0.02em',
+    },
+    body1: {
+      lineHeight: 1.8,
+    },
+    body2: {
+      lineHeight: 1.7,
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 0,
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          background: `linear-gradient(135deg, ${colors.deepNavy} 0%, ${colors.darkSlate} 100%)`,
+          backgroundColor: colors.white,
           minHeight: '100vh',
         },
+        '::selection': {
+          backgroundColor: colors.accent,
+          color: colors.white,
+        },
         '::-webkit-scrollbar': {
-          width: '8px',
+          width: '6px',
         },
         '::-webkit-scrollbar-track': {
-          background: colors.deepNavy,
+          background: colors.lightGray,
         },
         '::-webkit-scrollbar-thumb': {
-          background: colors.midnight,
-          borderRadius: '4px',
+          background: colors.mediumGray,
         },
         '::-webkit-scrollbar-thumb:hover': {
-          background: colors.steelBlue,
+          background: colors.darkGray,
         },
       },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
-          padding: '10px 24px',
+          borderRadius: 0,
+          padding: '14px 32px',
           boxShadow: 'none',
+          fontSize: '0.875rem',
+          transition: 'all 0.2s ease',
           '&:hover': {
-            boxShadow: `0 0 20px ${alpha(colors.gold, 0.3)}`,
+            boxShadow: 'none',
           },
         },
         contained: {
-          background: `linear-gradient(135deg, ${colors.gold} 0%, ${colors.amber} 100%)`,
+          backgroundColor: colors.charcoal,
           '&:hover': {
-            background: `linear-gradient(135deg, ${colors.goldLight} 0%, ${colors.gold} 100%)`,
+            backgroundColor: colors.black,
+            transform: 'translateY(-1px)',
           },
         },
         outlined: {
-          borderColor: colors.gold,
-          color: colors.gold,
+          borderColor: colors.charcoal,
+          borderWidth: 2,
+          color: colors.charcoal,
           '&:hover': {
-            borderColor: colors.goldLight,
-            backgroundColor: alpha(colors.gold, 0.1),
+            borderColor: colors.black,
+            borderWidth: 2,
+            backgroundColor: 'transparent',
+          },
+        },
+        text: {
+          color: colors.charcoal,
+          '&:hover': {
+            backgroundColor: 'transparent',
+            textDecoration: 'underline',
           },
         },
       },
@@ -132,22 +164,25 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            backgroundColor: alpha(colors.deepNavy, 0.8),
+            borderRadius: 0,
+            backgroundColor: colors.white,
             '& fieldset': {
-              borderColor: alpha(colors.steelBlue, 0.3),
+              borderColor: colors.gray,
+              borderWidth: 2,
             },
             '&:hover fieldset': {
-              borderColor: alpha(colors.gold, 0.5),
+              borderColor: colors.charcoal,
             },
             '&.Mui-focused fieldset': {
-              borderColor: colors.gold,
+              borderColor: colors.charcoal,
+              borderWidth: 2,
             },
           },
           '& .MuiInputLabel-root': {
-            color: colors.steelBlue,
+            color: colors.mediumGray,
           },
           '& .MuiInputLabel-root.Mui-focused': {
-            color: colors.gold,
+            color: colors.charcoal,
           },
         },
       },
@@ -156,21 +191,26 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          background: `linear-gradient(145deg, ${alpha(colors.darkSlate, 0.9)} 0%, ${alpha(colors.deepNavy, 0.95)} 100%)`,
-          border: `1px solid ${alpha(colors.gold, 0.2)}`,
-          backdropFilter: 'blur(10px)',
+          backgroundColor: colors.white,
+          borderRadius: 0,
+          boxShadow: 'none',
+        },
+        elevation1: {
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          background: `linear-gradient(145deg, ${alpha(colors.darkSlate, 0.9)} 0%, ${alpha(colors.deepNavy, 0.95)} 100%)`,
-          border: `1px solid ${alpha(colors.gold, 0.2)}`,
+          backgroundColor: colors.white,
+          borderRadius: 0,
+          border: `1px solid ${colors.gray}`,
+          boxShadow: 'none',
           transition: 'all 0.3s ease',
           '&:hover': {
-            border: `1px solid ${alpha(colors.gold, 0.4)}`,
-            boxShadow: `0 8px 32px ${alpha(colors.gold, 0.1)}`,
+            borderColor: colors.charcoal,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
           },
         },
       },
@@ -178,33 +218,58 @@ export const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          background: alpha(colors.deepNavy, 0.95),
-          backdropFilter: 'blur(10px)',
-          borderBottom: `1px solid ${alpha(colors.gold, 0.2)}`,
+          backgroundColor: colors.white,
+          color: colors.charcoal,
           boxShadow: 'none',
+          borderBottom: `1px solid ${colors.gray}`,
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(colors.darkSlate, 0.8),
-          border: `1px solid ${alpha(colors.gold, 0.2)}`,
+          borderRadius: 0,
+          backgroundColor: colors.lightGray,
+          border: 'none',
+          fontWeight: 500,
+        },
+        outlined: {
+          border: `1px solid ${colors.gray}`,
+          backgroundColor: 'transparent',
         },
       },
     },
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 0,
         },
         standardError: {
-          backgroundColor: alpha(colors.crimson, 0.1),
-          border: `1px solid ${alpha(colors.crimson, 0.3)}`,
+          backgroundColor: alpha(colors.accent, 0.08),
+          border: `1px solid ${alpha(colors.accent, 0.2)}`,
+          color: colors.charcoal,
         },
         standardSuccess: {
-          backgroundColor: alpha(colors.emerald, 0.1),
-          border: `1px solid ${alpha(colors.emerald, 0.3)}`,
+          backgroundColor: alpha(colors.teal, 0.08),
+          border: `1px solid ${alpha(colors.teal, 0.2)}`,
+          color: colors.charcoal,
+        },
+      },
+    },
+    MuiDivider: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.gray,
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 0,
+          '&:hover': {
+            backgroundColor: colors.lightGray,
+          },
         },
       },
     },
@@ -212,4 +277,3 @@ export const theme = createTheme({
 });
 
 export { colors };
-

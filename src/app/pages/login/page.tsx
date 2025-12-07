@@ -51,13 +51,14 @@ export default function LoginPage() {
     <Box>
       {/* タイトル */}
       <Typography
-        variant="h6"
+        variant="subtitle1"
         component="h2"
-        align="center"
         sx={{
-          fontFamily: '"Cinzel", serif',
+          fontWeight: 700,
           color: 'text.primary',
           mb: 3,
+          textAlign: 'center',
+          letterSpacing: '0.05em',
         }}
       >
         冒険を始める
@@ -65,7 +66,7 @@ export default function LoginPage() {
 
       {/* エラー表示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
@@ -75,19 +76,13 @@ export default function LoginPage() {
         <Alert
           severity="success"
           icon={<CheckCircleIcon />}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            py: 3,
-          }}
+          sx={{ py: 2 }}
         >
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-            メールを送信しました！
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+            メールを送信しました
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            メールボックスを確認して、リンクをクリックしてください。
+            メールボックスを確認してください
           </Typography>
         </Alert>
       ) : (
@@ -107,7 +102,7 @@ export default function LoginPage() {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <EmailIcon sx={{ color: 'text.secondary' }} />
+                    <EmailIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
                   </InputAdornment>
                 ),
               },
@@ -117,10 +112,16 @@ export default function LoginPage() {
           {/* 送信ボタン */}
           <Button
             variant="contained"
-            size="large"
+            fullWidth
             onClick={handleLogin}
             disabled={loading || !email}
-            endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ArrowForwardIcon />}
+            endIcon={
+              loading ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : (
+                <ArrowForwardIcon sx={{ fontSize: 18 }} />
+              )
+            }
             sx={{ py: 1.5 }}
           >
             {loading ? "送信中..." : "マジックリンクを送信"}
@@ -128,7 +129,7 @@ export default function LoginPage() {
 
           {/* 説明テキスト */}
           <Typography variant="caption" color="text.secondary" align="center">
-            パスワード不要！メールに届くリンクからログインできます。
+            パスワード不要。メールに届くリンクからログインできます。
           </Typography>
         </Box>
       )}

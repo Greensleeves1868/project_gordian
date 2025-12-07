@@ -13,27 +13,29 @@ import {
   Chip,
   CircularProgress,
   InputAdornment,
-  useTheme,
   alpha,
   IconButton,
   Tooltip,
+  Divider,
+  LinearProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
-import FolderIcon from '@mui/icons-material/Folder';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckIcon from '@mui/icons-material/Check';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LogoutIcon from '@mui/icons-material/Logout';
+import WarningIcon from '@mui/icons-material/Warning';
 import type { User } from '@/types/user';
 import type { Session } from '@/types/roomResource';
 import { supabase } from '@/lib/supabaseClient';
 import { useResources } from '@/hooks/useResources';
+import { PLAN_LIMITS, formatFileSize, isFileSizeValid } from '@/lib/planLimits';
 
 export default function RoomResourcePage() {
-  const theme = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   
@@ -42,13 +44,16 @@ export default function RoomResourcePage() {
   const [sessionUrl, setSessionUrl] = useState('');
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [scenarioFile, setScenarioFile] = useState<File | null>(null);
+  const [fileSizeError, setFileSizeError] = useState<string | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const scenarioInputRef = useRef<HTMLInputElement>(null);
   
   const { 
     sessions,
+    sessionMeta,
     loading, 
     error, 
+    canCreateSession,
     fetchResources, 
     saveResource, 
     uploadFile,
@@ -74,8 +79,6 @@ export default function RoomResourcePage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        // Magic Linkからのリダイレクト直後はセッションがまだない場合がある
-        // onAuthStateChangeで処理されるので、少し待つ
         setTimeout(async () => {
           const { data: { session: retrySession } } = await supabase.auth.getSession();
           if (!retrySession?.user) {
@@ -102,10 +105,17 @@ export default function RoomResourcePage() {
     }
   }, [accessToken, fetchResources]);
 
+  // ログアウト処理
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  }, []);
+
   // セッション保存処理
   const handleSaveSession = useCallback(async () => {
     if (!accessToken) return;
     if (!sessionName.trim() && !sessionUrl.trim() && !thumbnailFile && !scenarioFile) return;
+    if (!canCreateSession) return;
 
     // セッションIDを生成
     const sessionId = crypto.randomUUID();
@@ -147,24 +157,48 @@ export default function RoomResourcePage() {
       setSessionUrl('');
       setThumbnailFile(null);
       setScenarioFile(null);
+      setFileSizeError(null);
       if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
       if (scenarioInputRef.current) scenarioInputRef.current.value = '';
       
       // リソースを再取得
       await fetchResources(accessToken);
     }
-  }, [accessToken, sessionName, sessionUrl, thumbnailFile, scenarioFile, saveResource, uploadFile, fetchResources]);
+  }, [accessToken, sessionName, sessionUrl, thumbnailFile, scenarioFile, canCreateSession, saveResource, uploadFile, fetchResources]);
+
+  // ファイルサイズのバリデーション
+  const validateFileSize = useCallback((file: File): boolean => {
+    if (!isFileSizeValid(file.size)) {
+      setFileSizeError(
+        `ファイルサイズが上限（${PLAN_LIMITS.FREE.maxFileSizeDisplay}）を超えています。選択: ${formatFileSize(file.size)}`
+      );
+      return false;
+    }
+    setFileSizeError(null);
+    return true;
+  }, []);
 
   const handleThumbnailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      setThumbnailFile(file);
+      if (validateFileSize(file)) {
+        setThumbnailFile(file);
+      } else {
+        e.target.value = '';
+      }
     }
-  }, []);
+  }, [validateFileSize]);
 
   const handleScenarioChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setScenarioFile(e.target.files?.[0] ?? null);
-  }, []);
+    const file = e.target.files?.[0];
+    if (file) {
+      if (validateFileSize(file)) {
+        setScenarioFile(file);
+      } else {
+        e.target.value = '';
+      }
+    }
+  }, [validateFileSize]);
 
   // セッション削除ハンドラ
   const handleDeleteSession = useCallback(async (sessionId: string, isStandalone: boolean) => {
@@ -176,259 +210,364 @@ export default function RoomResourcePage() {
     await deleteSession(accessToken, sessionId, isStandalone);
   }, [accessToken, deleteSession]);
 
-  const canSave = sessionUrl.trim() || thumbnailFile || scenarioFile;
+  const canSave = (sessionUrl.trim() || thumbnailFile || scenarioFile) && canCreateSession && !fileSizeError;
+
+  // セッション使用率の計算
+  const sessionUsagePercent = (sessionMeta.sessionCount / sessionMeta.maxSessions) * 100;
+  const isNearLimit = sessionUsagePercent >= 80;
 
   return (
-    <Box sx={{ py: 4 }}>
-      <Container maxWidth="lg">
-        {/* ヘッダー */}
-        <Box sx={{ mb: 4 }} className="animate-fade-in-up">
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* ダッシュボードヘッダー */}
+      <Box
+        sx={{
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Container maxWidth="lg">
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              py: 2,
+            }}
+          >
             <Typography
-              variant="h4"
-              component="h1"
+              variant="h6"
               sx={{
-                fontFamily: '"Cinzel", serif',
-                fontWeight: 700,
-                color: 'primary.main',
+                fontWeight: 800,
+                letterSpacing: '0.1em',
               }}
             >
-              ダッシュボード
+              GORDIAN
             </Typography>
+            
             {user && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'success.main',
-                    animation: 'pulse 2s infinite',
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 1 },
-                      '50%': { opacity: 0.5 },
-                    },
-                  }}
-                />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
                   {user.email}
                 </Typography>
+                <Button
+                  variant="text"
+                  size="small"
+                  startIcon={<LogoutIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleLogout}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  ログアウト
+                </Button>
               </Box>
             )}
           </Box>
+        </Container>
+      </Box>
+
+      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+        {/* ページタイトル */}
+        <Box
+          sx={{
+            mb: 4,
+            animation: 'fadeInUp 0.6s ease-out forwards',
+            '@keyframes fadeInUp': {
+              from: { opacity: 0, transform: 'translateY(20px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
+          <Typography
+            variant="h3"
+            component="h1"
+            sx={{
+              fontWeight: 800,
+              mb: 1,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            ダッシュボード
+          </Typography>
           <Typography color="text.secondary">
             セッションリソースを管理しましょう
           </Typography>
         </Box>
 
+        {/* 使用状況 */}
+        <Box
+          sx={{
+            mb: 4,
+            p: 3,
+            border: '1px solid',
+            borderColor: isNearLimit ? 'warning.main' : 'divider',
+            bgcolor: isNearLimit ? alpha('#ff9800', 0.04) : 'transparent',
+            animation: 'fadeInUp 0.6s ease-out forwards',
+            animationDelay: '0.05s',
+            opacity: 0,
+            '@keyframes fadeInUp': {
+              from: { opacity: 0, transform: 'translateY(20px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                セッション使用状況
+              </Typography>
+              <Chip 
+                label="Free プラン" 
+                size="small" 
+                variant="outlined"
+                sx={{ fontSize: '0.7rem' }}
+              />
+            </Box>
+            <Typography variant="body2" color={isNearLimit ? 'warning.main' : 'text.secondary'}>
+              {sessionMeta.sessionCount} / {sessionMeta.maxSessions} 件
+            </Typography>
+          </Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={sessionUsagePercent}
+            sx={{
+              height: 6,
+              bgcolor: alpha('#000', 0.08),
+              '& .MuiLinearProgress-bar': {
+                bgcolor: isNearLimit ? 'warning.main' : 'text.primary',
+              },
+            }}
+          />
+          {!canCreateSession && (
+            <Alert 
+              severity="warning" 
+              icon={<WarningIcon />}
+              sx={{ mt: 2 }}
+            >
+              セッション数が上限に達しています。新しいセッションを作成するには、既存のセッションを削除してください。
+            </Alert>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            ファイルサイズ上限: {PLAN_LIMITS.FREE.maxFileSizeDisplay} / ファイル
+          </Typography>
+        </Box>
+
         {/* エラー表示 */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} className="animate-fade-in-up">
-            {error}
+        {(error || fileSizeError) && (
+          <Alert severity="error" sx={{ mb: 4 }}>
+            {error || fileSizeError}
           </Alert>
         )}
 
         {/* セッション登録フォーム */}
-        <Card sx={{ mb: 4 }} className="animate-fade-in-up stagger-1">
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Box
+          sx={{
+            mb: 6,
+            p: { xs: 3, md: 4 },
+            border: '1px solid',
+            borderColor: !canCreateSession ? alpha('#000', 0.12) : 'divider',
+            opacity: !canCreateSession ? 0.6 : 1,
+            pointerEvents: !canCreateSession ? 'none' : 'auto',
+            animation: 'fadeInUp 0.6s ease-out forwards',
+            animationDelay: '0.1s',
+            '@keyframes fadeInUp': {
+              from: { opacity: 0, transform: 'translateY(20px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+            <AddIcon sx={{ fontSize: 20 }} />
+            <Typography variant="h6" fontWeight={700}>
+              新しいセッションを追加
+            </Typography>
+            {!canCreateSession && (
+              <Chip label="上限到達" size="small" color="warning" />
+            )}
+          </Box>
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* セッション名 */}
+            <TextField
+              fullWidth
+              label="セッション名"
+              placeholder="例: 狂気山脈、クトゥルフ神話"
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              disabled={loading || !canCreateSession}
+            />
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              {/* サムネイル画像 */}
               <Box
+                onClick={() => canCreateSession && thumbnailInputRef.current?.click()}
                 sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                  border: '2px dashed',
+                  borderColor: thumbnailFile ? 'success.main' : 'divider',
+                  p: 3,
+                  textAlign: 'center',
+                  cursor: canCreateSession ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                  bgcolor: thumbnailFile ? alpha('#00bfa5', 0.04) : 'transparent',
+                  '&:hover': canCreateSession ? {
+                    borderColor: 'text.primary',
+                  } : {},
                 }}
               >
-                <AddIcon sx={{ color: 'primary.contrastText' }} />
+                <input
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailChange}
+                  style={{ display: 'none' }}
+                  disabled={loading || !canCreateSession}
+                />
+                <ImageIcon sx={{ fontSize: 28, color: thumbnailFile ? 'success.main' : 'text.secondary', mb: 1 }} />
+                {thumbnailFile ? (
+                  <>
+                    <Typography color="success.main" fontWeight={600} variant="body2">
+                      {thumbnailFile.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatFileSize(thumbnailFile.size)}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body2" fontWeight={500}>
+                      サムネイル画像
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      上限 {PLAN_LIMITS.FREE.maxFileSizeDisplay}
+                    </Typography>
+                  </>
+                )}
               </Box>
-              <Typography variant="h6" color="primary.main">
-                新しいセッションを追加
-              </Typography>
+
+              {/* シナリオファイル */}
+              <Box
+                onClick={() => canCreateSession && scenarioInputRef.current?.click()}
+                sx={{
+                  border: '2px dashed',
+                  borderColor: scenarioFile ? 'secondary.main' : 'divider',
+                  p: 3,
+                  textAlign: 'center',
+                  cursor: canCreateSession ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                  bgcolor: scenarioFile ? alpha('#ff4d4d', 0.04) : 'transparent',
+                  '&:hover': canCreateSession ? {
+                    borderColor: 'text.primary',
+                  } : {},
+                }}
+              >
+                <input
+                  ref={scenarioInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleScenarioChange}
+                  style={{ display: 'none' }}
+                  disabled={loading || !canCreateSession}
+                />
+                <PictureAsPdfIcon sx={{ fontSize: 28, color: scenarioFile ? 'secondary.main' : 'text.secondary', mb: 1 }} />
+                {scenarioFile ? (
+                  <>
+                    <Typography color="secondary.main" fontWeight={600} variant="body2">
+                      {scenarioFile.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatFileSize(scenarioFile.size)}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body2" fontWeight={500}>
+                      シナリオファイル
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      上限 {PLAN_LIMITS.FREE.maxFileSizeDisplay}
+                    </Typography>
+                  </>
+                )}
+              </Box>
             </Box>
             
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {/* セッション名 */}
-              <TextField
-                fullWidth
-                label="セッション名"
-                placeholder="例: 狂気山脈、クトゥルフ神話"
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                disabled={loading}
-              />
+            {/* URL入力 */}
+            <TextField
+              fullWidth
+              label="ココフォリアURL"
+              placeholder="https://ccfolia.com/rooms/..."
+              value={sessionUrl}
+              onChange={(e) => setSessionUrl(e.target.value)}
+              disabled={loading || !canCreateSession}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LinkIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
 
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-                {/* サムネイル画像 */}
-                <Box sx={{ flex: 1 }}>
-                  <Box
-                    onClick={() => thumbnailInputRef.current?.click()}
-                    sx={{
-                      border: `2px dashed ${thumbnailFile ? theme.palette.success.main : alpha(theme.palette.text.secondary, 0.3)}`,
-                      borderRadius: 2,
-                      p: 3,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s',
-                      bgcolor: thumbnailFile ? alpha(theme.palette.success.main, 0.05) : 'transparent',
-                      '&:hover': {
-                        borderColor: alpha(theme.palette.primary.main, 0.5),
-                        bgcolor: alpha(theme.palette.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    <input
-                      ref={thumbnailInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleThumbnailChange}
-                      style={{ display: 'none' }}
-                      disabled={loading}
-                    />
-                    <ImageIcon sx={{ fontSize: 32, color: thumbnailFile ? 'success.main' : 'text.secondary', mb: 1 }} />
-                    {thumbnailFile ? (
-                      <Typography color="success.main" fontWeight={600} variant="body2">
-                        {thumbnailFile.name}
-                      </Typography>
-                    ) : (
-                      <>
-                        <Typography color="text.primary" variant="body2">
-                          サムネイル画像
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          クリックして選択
-                        </Typography>
-                      </>
-                    )}
-                  </Box>
-                </Box>
+            {/* 保存ボタン */}
+            <Button
+              variant="contained"
+              onClick={handleSaveSession}
+              disabled={loading || !canSave}
+              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <CheckIcon sx={{ fontSize: 18 }} />}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {loading ? '保存中...' : 'セッションを保存'}
+            </Button>
+          </Box>
+        </Box>
 
-                {/* シナリオファイル */}
-                <Box sx={{ flex: 1 }}>
-                  <Box
-                    onClick={() => scenarioInputRef.current?.click()}
-                    sx={{
-                      border: `2px dashed ${scenarioFile ? theme.palette.error.main : alpha(theme.palette.text.secondary, 0.3)}`,
-                      borderRadius: 2,
-                      p: 3,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s',
-                      bgcolor: scenarioFile ? alpha(theme.palette.error.main, 0.05) : 'transparent',
-                      '&:hover': {
-                        borderColor: alpha(theme.palette.primary.main, 0.5),
-                        bgcolor: alpha(theme.palette.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    <input
-                      ref={scenarioInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={handleScenarioChange}
-                      style={{ display: 'none' }}
-                      disabled={loading}
-                    />
-                    <PictureAsPdfIcon sx={{ fontSize: 32, color: scenarioFile ? 'error.main' : 'text.secondary', mb: 1 }} />
-                    {scenarioFile ? (
-                      <Typography color="error.main" fontWeight={600} variant="body2">
-                        {scenarioFile.name}
-                      </Typography>
-                    ) : (
-                      <>
-                        <Typography color="text.primary" variant="body2">
-                          シナリオファイル
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          PDF、Word等
-                        </Typography>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-              
-              {/* URL入力 */}
-              <TextField
-                fullWidth
-                label="ココフォリアURL"
-                placeholder="https://ccfolia.com/rooms/..."
-                value={sessionUrl}
-                onChange={(e) => setSessionUrl(e.target.value)}
-                disabled={loading}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LinkIcon sx={{ color: 'text.secondary' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              {/* 保存ボタン */}
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleSaveSession}
-                disabled={loading || !canSave}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CheckIcon />}
-                sx={{ alignSelf: 'flex-start', mt: 1 }}
-              >
-                {loading ? '保存中...' : 'セッションを保存'}
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
+        <Divider sx={{ mb: 5 }} />
 
         {/* セッション一覧 */}
-        <Box className="animate-fade-in-up stagger-2">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-              }}
-            >
-              <FolderIcon sx={{ color: 'primary.main' }} />
-            </Box>
-            <Typography variant="h6" color="primary.main">
+        <Box
+          sx={{
+            animation: 'fadeInUp 0.6s ease-out forwards',
+            animationDelay: '0.2s',
+            opacity: 0,
+            '@keyframes fadeInUp': {
+              from: { opacity: 0, transform: 'translateY(20px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6" fontWeight={700}>
               保存されたセッション
             </Typography>
             <Chip
               label={`${sessions.length} 件`}
               size="small"
-              sx={{ ml: 'auto' }}
+              variant="outlined"
             />
           </Box>
           
           {loading && sessions.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6 }}>
-              <CircularProgress sx={{ mb: 2 }} />
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <CircularProgress size={32} sx={{ mb: 2 }} />
               <Typography color="text.secondary">読み込み中...</Typography>
             </Box>
           ) : sessions.length === 0 ? (
-            <Card>
-              <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <FolderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
-                <Typography variant="subtitle1" color="text.primary" sx={{ mb: 1 }}>
-                  まだセッションがありません
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  サムネイル画像、シナリオファイル、URLを登録してセッションを作成しましょう。
-                </Typography>
-              </CardContent>
-            </Card>
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 8,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                まだセッションがありません
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                上のフォームからセッションを作成しましょう
+              </Typography>
+            </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {sessions.map((session, index) => (
@@ -447,7 +586,7 @@ export default function RoomResourcePage() {
   );
 }
 
-// セッションカードコンポーネント（横長レイアウト）
+// セッションカードコンポーネント
 function SessionCard({ 
   session, 
   index, 
@@ -457,11 +596,9 @@ function SessionCard({
   index: number;
   onDelete: (sessionId: string, isStandalone: boolean) => void;
 }) {
-  const theme = useTheme();
   const { id, name, created_at, thumbnail, url, file } = session;
   
   // スタンドアロン（session_idがないリソース）かどうかを判定
-  // スタンドアロンの場合、idはリソースのIDそのもの
   const isStandalone = !thumbnail?.session_id && !url?.session_id && !file?.session_id;
   
   return (
@@ -469,7 +606,7 @@ function SessionCard({
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' },
-        animation: `fadeInUp 0.5s ease-out forwards`,
+        animation: `fadeInUp 0.4s ease-out forwards`,
         animationDelay: `${index * 0.05}s`,
         opacity: 0,
         '@keyframes fadeInUp': {
@@ -482,11 +619,11 @@ function SessionCard({
       <Box
         sx={{
           position: 'relative',
-          width: { xs: '100%', sm: 200 },
-          minWidth: { sm: 200 },
-          height: { xs: 150, sm: 'auto' },
-          aspectRatio: { sm: '16/9' },
-          bgcolor: alpha(theme.palette.secondary.main, 0.3),
+          width: { xs: '100%', sm: 180 },
+          minWidth: { sm: 180 },
+          height: { xs: 140, sm: 'auto' },
+          minHeight: { sm: 120 },
+          bgcolor: 'grey.100',
           overflow: 'hidden',
           flexShrink: 0,
         }}
@@ -513,21 +650,18 @@ function SessionCard({
               minHeight: 120,
             }}
           >
-            <ImageIcon sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.3 }} />
+            <ImageIcon sx={{ fontSize: 40, color: 'grey.400' }} />
           </Box>
         )}
       </Box>
 
       {/* コンテンツ（右側） */}
-      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            {/* セッション名 */}
-            <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
               {name}
             </Typography>
-
-            {/* 作成日時 */}
             <Typography variant="caption" color="text.secondary">
               {new Date(created_at).toLocaleDateString('ja-JP')}
             </Typography>
@@ -535,7 +669,6 @@ function SessionCard({
 
           {/* アクションボタン */}
           <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-            {/* ファイルダウンロードボタン */}
             {file && (
               <Tooltip title="シナリオをダウンロード">
                 <IconButton
@@ -543,59 +676,61 @@ function SessionCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   download
+                  size="small"
                   sx={{
-                    bgcolor: alpha(theme.palette.error.main, 0.1),
-                    color: 'error.main',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.error.main, 0.2),
+                      borderColor: 'text.primary',
                     },
                   }}
                 >
-                  <DownloadIcon />
+                  <DownloadIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             )}
 
-            {/* URLリンクボタン */}
             {url && (
               <Tooltip title="ココフォリアを開く">
                 <IconButton
                   href={url.value}
                   target="_blank"
                   rel="noopener noreferrer"
+                  size="small"
                   sx={{
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: 'primary.main',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.2),
+                      borderColor: 'text.primary',
                     },
                   }}
                 >
-                  <OpenInNewIcon />
+                  <OpenInNewIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             )}
 
-            {/* リソースがない場合の表示 */}
             {!file && !url && (
               <Typography variant="caption" color="text.secondary">
                 リソースなし
               </Typography>
             )}
 
-            {/* 削除ボタン */}
             <Tooltip title="削除">
               <IconButton
                 onClick={() => onDelete(id, isStandalone)}
+                size="small"
                 sx={{
-                  bgcolor: alpha(theme.palette.error.dark, 0.1),
-                  color: 'error.dark',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  color: 'secondary.main',
                   '&:hover': {
-                    bgcolor: alpha(theme.palette.error.dark, 0.3),
+                    borderColor: 'secondary.main',
+                    bgcolor: alpha('#ff4d4d', 0.04),
                   },
                 }}
               >
-                <DeleteIcon />
+                <DeleteIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
           </Box>
