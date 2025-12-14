@@ -46,11 +46,28 @@ export default function ContactPage() {
     setLoading(true);
     setError(null);
 
-    // 実際の送信処理（現在はダミー）
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    setLoading(false);
-    setSuccess(true);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '送信に失敗しました');
+      }
+
+      setSuccess(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '予期しないエラーが発生しました';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isValid = formData.name && formData.email && formData.message;
