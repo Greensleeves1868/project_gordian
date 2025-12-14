@@ -117,6 +117,7 @@ export default function PricingPage() {
                 width: { xs: '100%', md: 340 },
                 maxWidth: 400,
                 position: 'relative',
+                overflow: 'visible',
                 animation: 'fadeInUp 0.5s ease-out forwards',
                 animationDelay: `${index * 0.1}s`,
                 opacity: 0,
@@ -141,6 +142,7 @@ export default function PricingPage() {
                     bgcolor: 'text.secondary',
                     color: 'background.paper',
                     fontWeight: 600,
+                    zIndex: 1,
                   }}
                 />
               )}
